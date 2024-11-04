@@ -9,6 +9,7 @@
 */
 /******************************************************************************/
 extern void attente_aleatoire();
+extern int nombre_tickets_aleatoire();
 extern int * attacher_segment_memoire();
 extern int P();
 extern int V();
@@ -32,7 +33,8 @@ if (*mem == 0) {
 }
 else {
   /* On écrit dans la shm */
-  *mem=(*mem - 1);
+  int nb_tickets_achete = nombre_tickets_aleatoire(7);
+  *mem=(*mem - nb_tickets_achete);
   printf("Dans la shm il y a %d places\n", *mem);
   place_attribuee=true;
 }
@@ -67,7 +69,7 @@ mem=attacher_segment_memoire(mem, &shmid);
 
 while (1) {
   attente_aleatoire(delais);
-  printf("Une voiture se présente\n");
+  printf("Un client se présente\n");
   while (caisse(mem, semid) == false) {
     sleep(1);  
   }
