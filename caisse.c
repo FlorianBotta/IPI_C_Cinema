@@ -2,78 +2,65 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdbool.h>
-
+ 
 /******************************************************************************/
-/*
- * Fonctions externes
-*/
-/******************************************************************************/
+// Fonctions externes
+/******************************************************************************/ 
 extern void attente_aleatoire();
-extern int nombre_tickets_aleatoire();
+extern int places_aleatoires();
 extern int * attacher_segment_memoire();
 extern int P();
 extern int V();
-
+ 
 /******************************************************************************/
-/*
- * Fonctions 
-*/
-/******************************************************************************/
-
-bool caisse(int *mem, int semid) {                                       
-bool place_attribuee=false;
-
-/* On protège l'accès à la shm */
-P(semid);
-
-/* Reste-t-il des places libres ? */
-if (*mem == 0) {
-  /* No more */
-  printf("Dans la shm il y a %d places\n", *mem);
-}
-else {
-  /* On écrit dans la shm */
-  int nb_tickets_achete = nombre_tickets_aleatoire(7);
-  *mem=(*mem - nb_tickets_achete);
-  printf("Dans la shm il y a %d places\n", *mem);
-  place_attribuee=true;
-}
-
-/* On protège l'accès à la shm */
-V(semid);
-
-return (place_attribuee);
-}
-
-
-/******************************************************************************/
-/*
- * Programme principal
-*/
-/******************************************************************************/
+// Programme principal
+/******************************************************************************/ 
 int main(int argc, char *argv[]) {
-
-unsigned int  delais=3;
-
-int shmid=atoi(argv[1]);
-int semid=atoi(argv[2]);
-
-int *mem;
-
-/*
-printf("Je suis %s, shmid=%d, semid=%d\n", argv[0], shmid, semid);
-*/
-
-/* Attachement du segment de mémoire partagée */
-mem=attacher_segment_memoire(mem, &shmid);
-
-while (1) {
-  attente_aleatoire(delais);
-  printf("Un client se présente\n");
-  while (caisse(mem, semid) == false) {
-    sleep(1);  
-  }
-}
-
-return(0);
+    if (argc != 4) {
+        fprintf(stderr, "Usage : %s shmid semid caisse_numero\n", argv[0]);
+        return 1;
+    }
+ 
+    int shmid = atoi(argv[1]);
+    int semid = atoi(argv[2]);
+    int caisse_numero = atoi(argv[3]);
+    int *mem;
+ 
+    /* Attacher le segment de mémoire partagée */
+    mem = attacher_segment_memoire(mem, &shmid);
+ 
+    printf("Caisse n° %d [%d]: Démarrage.\n", caisse_numero, getpid());
+ 
+    while (1) {
+        attente_aleatoire();
+ 
+        /* Générer un nombre aléatoire de places demandées */
+        int places_demandees = places_aleatoires();
+        bool places_vendues = false;
+ 
+        /* Protéger l'accès à la mémoire partagée */
+        P(semid);
+ 
+        /* Vérifier les places disponibles */
+        if (*mem >= places_demandees) {
+            *mem -= places_demandees;
+            printf("Caisse n° %d [%d]: %d places vendues, %d restantes.\n", caisse_numero, getpid(), places_demandees, *mem);
+            places_vendues = true;
+        } else if (*mem == 0) {
+            printf("Caisse n° %d [%d]: Plus de places disponibles. Fermeture.\n", caisse_numero, getpid());
+            V(semid);
+            break;
+        }
+ 
+        /* Libérer l'accès à la mémoire partagée */
+        V(semid);
+ 
+        /* Si les places n'ont pas été vendues, attendre avant de réessayer */
+        if (!places_vendues) {
+            sleep(1);
+        }
+    }
+ 
+    printf("Caisse n° %d [%d]: Terminé.\n", caisse_numero, getpid());
+    return 0;
 }
